@@ -7,8 +7,8 @@
  * 3. 左の歯車「プロジェクトの設定」→「スクリプト プロパティ」に2つ追加
  *      SUPABASE_URL          … Project URL(https://xxxx.supabase.co)
  *      SUPABASE_SERVICE_KEY  … service_role キー(Secret key。倉庫の合鍵。ここ以外に絶対に貼らない)
- * 4. 上のメニューで「syncAll」を選んで「実行」(初回だけ許可を求められます)
- * 5. 左の時計マーク「トリガー」→「トリガーを追加」→ syncAll / 時間主導型 / 1時間おき
+ * 4. 上のメニューで「setupSync」を選んで「実行」(初回だけ許可を求められます)
+ *    → 1時間ごとの自動集計が設定され、すぐに1回集計されます
  *
  * 作られるシート(「集計_」で始まる名前だけを毎回書き直します。ほかのシートには触りません)
  *   集計_日別サマリー … 日付×ゲームごとの訪問・プレイ開始/完了・リザルト表示など
@@ -18,6 +18,13 @@
  *
  * ⚠ このスプレッドシートの「編集権限」は他の人に渡さないでください(合鍵が見えてしまうため)。
  */
+// 1時間ごとの自動実行を設定して、1回すぐに集計する(最初に1回だけ実行)
+function setupSync() {
+  ScriptApp.getProjectTriggers().filter(t => t.getHandlerFunction() === 'syncAll').forEach(t => ScriptApp.deleteTrigger(t));
+  ScriptApp.newTrigger('syncAll').timeBased().everyHours(1).create();
+  syncAll();
+}
+
 function syncAll() {
   const ev = callRpc_('admin_event_daily');
   writeSheet_('集計_日別サマリー', summaryRows_(ev), SUMMARY_HEADER);
