@@ -2,11 +2,11 @@
 <html lang="ja">
 <head>
 <meta charset="utf-8">
-<title>ドパアンキ</title>
+<title>ドパ暗記</title>
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#151640">
 <meta name="description" content="30秒で暗記バトル。英単語・日本史・元素記号・古文・漢文を、スワイプで遊びながら覚える中高生向け暗記ゲーム。">
-<meta property="og:title" content="ドパアンキ">
+<meta property="og:title" content="ドパ暗記">
 <meta property="og:description" content="30秒で暗記バトル。まちがえた問題は解説と再挑戦で確実に覚える。">
 <meta property="og:type" content="website">
 <meta property="og:image" content="/og.png">
@@ -19,7 +19,7 @@
 </head>
 <body>
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Dela+Gothic+One&family=M+PLUS+Rounded+1c:wght@700;800&family=Zen+Kaku+Gothic+New:wght@500;700&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Dela+Gothic+One&family=Mochiy+Pop+One&family=M+PLUS+Rounded+1c:wght@700;800&family=Zen+Kaku+Gothic+New:wght@500;700&display=swap">
 <style>
 /* Layout: mobile-game shell. Night-sky backdrop, player status bar on top, content in light panels with thick outlines, bottom tab bar. Deliberately single-theme. */
 :root{
@@ -203,8 +203,8 @@ button:focus-visible{outline:3px solid var(--gold);outline-offset:3px}
 @keyframes glow{50%{box-shadow:0 5px 0 var(--ink),0 0 26px rgba(255,79,139,.7)}}
 .row{display:grid;grid-template-columns:1fr 1fr;gap:10px}
 /* tab bar */
-.tabbar{display:grid;grid-template-columns:repeat(5,1fr);gap:4px;background:rgba(10,12,40,.75);border-top:2px solid rgba(255,255,255,.14);margin-inline:-12px;padding:6px 8px calc(6px + env(safe-area-inset-bottom,0px))}
-.tabbar button{background:none;border:0;color:#9ea1d6;display:grid;justify-items:center;gap:2px;font-size:.62rem;padding:4px 0;border-radius:12px}
+.tabbar{display:grid;grid-template-columns:repeat(6,1fr);gap:4px;background:rgba(10,12,40,.75);border-top:2px solid rgba(255,255,255,.14);margin-inline:-12px;padding:6px 8px calc(6px + env(safe-area-inset-bottom,0px))}
+.tabbar button{background:none;border:0;color:#9ea1d6;display:grid;justify-items:center;gap:2px;font-size:.58rem;white-space:nowrap;min-width:0;letter-spacing:-.02em;padding:4px 0;border-radius:12px}
 .tabbar svg{width:24px;height:24px}
 .tabbar button[aria-current="page"]{color:var(--gold);background:rgba(255,207,58,.12)}
 /* game */
@@ -897,7 +897,7 @@ const IC={
  back:'<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M15 5l-7 7 7 7"/></svg>'};
 function shell(cur,body){
   app.innerHTML=`<div class="view">${body}</div>
-  <nav class="tabbar">${[["home","ホーム"],["his","振り返り"],["lib","図鑑"],["me","マイページ"],["set","設定"]].map(([k,l])=>`<button data-nav="${k}" ${k===cur?'aria-current="page"':""}>${IC[k]}${l}</button>`).join("")}</nav>`;
+  <nav class="tabbar">${[["home","ホーム"],["rank","ランキング"],["his","振り返り"],["lib","図鑑"],["me","マイページ"],["set","設定"]].map(([k,l])=>`<button data-nav="${k}" ${k===cur?'aria-current="page"':""}>${IC[k]}${l}</button>`).join("")}</nav>`;
   app.querySelectorAll("[data-nav]").forEach(b=>b.onclick=()=>{sfx.tap();({home,his:()=>history("all"),lib:()=>library(deckKey==="daily"?pool("mix"):pool(),"図鑑","lib"),rank:()=>ranking("day"),me:mypage,set:settings})[b.dataset.nav]()});
 }
 function hbar(t){return `<div class="hbar"><button class="back" id="bk" aria-label="もどる">${IC.back}</button><h2>${t}</h2></div>`}
@@ -998,17 +998,15 @@ function home(){
   clearInterval(tick);g=null;screen="home";document.body.classList.remove("fever");bumpDays();
   const dDone=S.get("nj_dailydone","")===today(),dItems=dailyItems();
   shell("home",`
-   <h1 class="dlogo" aria-label="ドパアンキ"><svg viewBox="0 0 400 124" role="img" aria-hidden="true">
+   <h1 class="dlogo" aria-label="ドパ暗記"><svg viewBox="0 0 400 124" role="img" aria-hidden="true">
      <defs>
       <linearGradient id="lgP" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#ff9ab8"/><stop offset=".55" stop-color="#ff4f8b"/><stop offset="1" stop-color="#e0306c"/></linearGradient>
       <linearGradient id="lgG" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#fff4b8"/><stop offset=".5" stop-color="#ffd23f"/><stop offset="1" stop-color="#ff9f1c"/></linearGradient>
      </defs>
      <g class="spd" stroke="#3ad0ff" stroke-width="5" stroke-linecap="round"><path d="M8 52h26M2 66h34M12 80h22"/></g>
-     <g transform="skewX(-8) translate(18 0)" font-family="Dela Gothic One, sans-serif" font-size="62" letter-spacing="-1">
-      <text x="44" y="94" fill="#16183d" stroke="#16183d" stroke-width="16" stroke-linejoin="round">ドパ<tspan fill="#16183d">アンキ</tspan></text>
-      <text x="44" y="86" fill="#16183d" stroke="#16183d" stroke-width="16" stroke-linejoin="round">ドパ<tspan>アンキ</tspan></text>
-      <text x="44" y="86" stroke="#fff" stroke-width="6" stroke-linejoin="round" fill="#fff">ドパ<tspan>アンキ</tspan></text>
-      <text x="44" y="86"><tspan fill="url(#lgP)">ドパ</tspan><tspan fill="url(#lgG)">アンキ</tspan></text>
+     <g transform="skewX(-8) translate(18 0)" font-family="Dela Gothic One, sans-serif" letter-spacing="-1">
+      <g font-size="62"><text x="44" y="94" fill="#16183d" stroke="#16183d" stroke-width="16" stroke-linejoin="round">ドパ</text><text x="44" y="86" fill="#16183d" stroke="#16183d" stroke-width="16" stroke-linejoin="round">ドパ</text><text x="44" y="86" stroke="#fff" stroke-width="6" stroke-linejoin="round" fill="#fff">ドパ</text><text x="44" y="86" fill="url(#lgP)">ドパ</text></g>
+      <g font-size="62" letter-spacing="1" font-family="Mochiy Pop One, Dela Gothic One, sans-serif"><text x="172" y="94" fill="#16183d" stroke="#16183d" stroke-width="13" stroke-linejoin="round">暗記</text><text x="172" y="87" fill="#16183d" stroke="#16183d" stroke-width="13" stroke-linejoin="round">暗記</text><text x="172" y="87" stroke="#fff" stroke-width="5" stroke-linejoin="round" fill="#fff">暗記</text><text x="172" y="87" fill="url(#lgG)">暗記</text></g>
      </g>
      <g class="spk"><path d="M378 8l5 13 13 5-13 5-5 13-5-13-13-5 13-5z" fill="#ffd23f" stroke="#16183d" stroke-width="3" stroke-linejoin="round"/><circle cx="358" cy="8" r="4" fill="#3ad0ff" stroke="#16183d" stroke-width="2"/></g>
     </svg></h1>
@@ -1068,13 +1066,13 @@ async function ranking(tab){
   screen="rank";
   const body=list=>`${hbar("ランキング")}
    <div class="panel tabs">${[["day","今日"],["xp","累計EXP"],["all","全ゲーム"]].map(([k,l])=>`<button class="tab" data-r="${k}" aria-pressed="${k===tab}">${l}</button>`).join("")}</div>${list}`;
-  shell("me",body(`<p class="empty">読み込み中...</p>`));
-  const wire=()=>{on("bk",mypage);app.querySelectorAll("[data-r]").forEach(b=>b.onclick=()=>ranking(b.dataset.r))};wire();
-  if(!DB){shell("me",body(`<p class="empty">ランキングは準備中です。通信できる状態で開き直してください。</p>`));wire();return}
-  if(!nick()){shell("me",body(nickForm("ランキングに表示する名前を決めよう")));wire();wireNick(()=>ranking(tab));return}
+  shell("rank",body(`<p class="empty">読み込み中...</p>`));
+  const wire=()=>{on("bk",home);app.querySelectorAll("[data-r]").forEach(b=>b.onclick=()=>ranking(b.dataset.r))};wire();
+  if(!DB){shell("rank",body(`<p class="empty">ランキングは準備中です。通信できる状態で開き直してください。</p>`));wire();return}
+  if(!nick()){shell("rank",body(nickForm("ランキングに表示する名前を決めよう")));wire();wireNick(()=>ranking(tab));return}
   await pushRank();
   let rows=tab==="all"?await fetchTotal():await fetchRank();if(screen!=="rank")return;
-  if(!rows){shell("me",body(`<p class="empty">ランキングを読み込めませんでした。少し待ってから開き直してください。</p>`));wire();return}
+  if(!rows){shell("rank",body(`<p class="empty">ランキングを読み込めませんでした。少し待ってから開き直してください。</p>`));wire();return}
   rows=tab==="day"?rows.filter(r=>r.day===today()&&r.dayBest>0).sort((a,b)=>b.dayBest-a.dayBest):rows.filter(r=>r.xp>0).sort((a,b)=>b.xp-a.xp);
   rows=rows.slice(0,50);
   if(screen!=="rank")return;
@@ -1085,7 +1083,7 @@ async function ranking(tab){
     <span class="val">${esc(tab==="day"?r.dayBest:r.xp)}<small>${tab==="day"?"点":"EXP"}</small></span></div>`).join("")}</div>
    <p class="empty" style="margin:4px 0">${tab==="day"?"今日のスコアは毎日0時にリセット":tab==="all"?"同じ端末で遊んだ、すべてのゲームのEXPの合計":""}</p>`
    :`<p class="empty">${tab==="day"?"今日はまだ誰も遊んでいません。1位を取るチャンスです。":"まだ記録がありません。"}</p><button class="btn go" id="go">START</button>`;
-  shell("me",body(list));wire();on("go",countdown);
+  shell("rank",body(list));wire();on("go",countdown);
   app.querySelectorAll(".rk .nm").forEach((el,i)=>{const r=rows[i];el.textContent=r.nickname||"プレイヤー"});
 }
 
