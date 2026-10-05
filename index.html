@@ -898,7 +898,7 @@ const IC={
 function shell(cur,body){
   app.innerHTML=`<div class="view">${body}</div>
   <nav class="tabbar">${[["home","ホーム"],["rank","ランキング"],["his","振り返り"],["lib","図鑑"],["me","マイページ"],["set","設定"]].map(([k,l])=>`<button data-nav="${k}" ${k===cur?'aria-current="page"':""}>${IC[k]}${l}</button>`).join("")}</nav>`;
-  app.querySelectorAll("[data-nav]").forEach(b=>b.onclick=()=>{sfx.tap();({home,his:()=>history("all"),lib:()=>library(deckKey==="daily"?pool("mix"):pool(),"図鑑","lib"),rank:()=>ranking("day"),me:mypage,set:settings})[b.dataset.nav]()});
+  app.querySelectorAll("[data-nav]").forEach(b=>b.onclick=()=>{sfx.tap();track("nav",{to:b.dataset.nav});({home,his:()=>history("all"),lib:()=>library(deckKey==="daily"?pool("mix"):pool(),"図鑑","lib"),rank:()=>ranking("day"),me:mypage,set:settings})[b.dataset.nav]()});
 }
 function hbar(t){return `<div class="hbar"><button class="back" id="bk" aria-label="もどる">${IC.back}</button><h2>${t}</h2></div>`}
 
@@ -939,6 +939,14 @@ function esc(t){return String(t??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&l
 function nick(){return S.get("dp_nick","")}
 const NG=["死ね","しね","殺す","ころす","ちんこ","まんこ","うんこ","fuck","shit","sex"];
 function checkNick(t){t=String(t||"").trim();if(!t)return "名前を入れてください";if([...t].length>12)return "12文字以内にしてください";if(NG.some(w=>t.toLowerCase().includes(w)))return "その名前は使えません";return ""}
+/* ---------- play analytics (anonymous) ---------- */
+const TQ=[];let tFlushT=null,tLast={};
+function track(name,props){try{const k=name+JSON.stringify(props||{}),t=Date.now();if(tLast[k]&&t-tLast[k]<1500)return;tLast[k]=t;
+  TQ.push({name,props:props||{},at:new Date().toISOString()});if(TQ.length>60)TQ.splice(0,TQ.length-60);clearTimeout(tFlushT);tFlushT=setTimeout(flushTrack,1200)}catch(e){}}
+async function flushTrack(){if(!DB||!MYID||!TQ.length)return;const rows=TQ.splice(0,TQ.length).map(e=>({player_id:MYID,game_id:GAME_ID,name:e.name,props:e.props,created_at:e.at}));
+  try{const {error}=await DB.from("events").insert(rows);if(error&&TQ.length<60)TQ.unshift(...rows.slice(0,20).map(r=>({name:r.name,props:r.props,at:r.created_at})))}catch(e){}}
+addEventListener("visibilitychange",()=>{if(document.visibilityState==="hidden")flushTrack()});
+track("app_open",{mobile:/Mobi|Android|iPhone/i.test(navigator.userAgent),ref:(()=>{try{return document.referrer?new URL(document.referrer).hostname:""}catch(e){return ""}})()});
 async function boot(){
   if(!CFG.supabaseUrl||!CFG.supabaseAnonKey||!window.supabase)return;
   try{
@@ -950,6 +958,7 @@ async function boot(){
   try{const {data}=await DB.from("daily_packs").select("data").eq("game_id",GAME_ID).eq("date",today()).maybeSingle();if(data&&data.data)applyPack(data.data)}catch(e){}
   if(screen==="home")home();
   if(MYID)pushRank();
+  flushTrack();
 }
 async function pushRank(){
   if(!DB||!MYID)return false;
@@ -994,6 +1003,7 @@ function loginBonus(){
 
 /* ---------- home ---------- */
 function home(){
+  track("home_view",{level});
   if(deckKey!=="daily"&&deckKey!=="mix"&&!avail().includes(deckKey)){deckKey="mix";S.set("nj_deck",deckKey)}
   clearInterval(tick);g=null;screen="home";document.body.classList.remove("fever");bumpDays();
   const dDone=S.get("nj_dailydone","")===today(),dItems=dailyItems();
@@ -1039,6 +1049,7 @@ function home(){
 }
 
 function askStart(k){
+  track("start_sheet",{deck:k});
   if(k==="daily"){markDailySeen();document.querySelectorAll(".dnew").forEach(e=>e.remove());const dc=document.querySelector(".dcard");if(dc)dc.classList.remove("fresh")}
   const old=document.querySelector(".sheetbg");if(old)old.remove();
   const daily=k==="daily",items=pool(k),st=S.get("nj_star_"+k,0),best=S.get("nj_best_"+k,0),m=daily?null:mastery(k);
@@ -1063,6 +1074,7 @@ function askStart(k){
 
 /* ---------- ranking ---------- */
 async function ranking(tab){
+  track("ranking_view",{tab});
   screen="rank";
   const body=list=>`${hbar("ランキング")}
    <div class="panel tabs">${[["day","今日"],["xp","累計EXP"],["all","全ゲーム"]].map(([k,l])=>`<button class="tab" data-r="${k}" aria-pressed="${k===tab}">${l}</button>`).join("")}</div>${list}`;
@@ -1104,6 +1116,7 @@ function gameLayout(){
   on("quit",()=>{clearInterval(tick);g=null;home()});
 }
 function countdown(){
+  track("game_start",{deck:deckKey,level});
   screen="game";g={phase:"cd"};gameLayout();
   $("arena").innerHTML=`<div class="panel qcard"><span class="sj" style="--c:${ICON[deckKey][1]}">${DECK_NAMES[deckKey]}</span><div class="q">READY?</div><span class="ask">左右スワイプ / ボタン / ←→キー</span></div>`;
   const ov=document.createElement("div");ov.className="overlay";app.querySelector(".view").appendChild(ov);
@@ -1158,6 +1171,7 @@ function rankOf(s){return s>=840?"SSS":s>=640?"SS":s>=480?"S":s>=340?"A":s>=220?
 function gacha(rank){const b={SSS:4,SS:3,S:2.2,A:1.6,B:1.2,C:1,D:.8}[rank],x=Math.random()*100,rar=x<3*b?"SSR":x<12*b?"SR":x<40?"R":"N";
  const l=TITLES.filter(t=>t[0]===rar);return l[Math.floor(Math.random()*l.length)]}
 function result(r){
+  track("game_end",{deck:deckKey,score:r.score,ok:r.ok,ans:r.ans,miss:r.miss.length});
   const bk="nj_best_"+deckKey,isBest=r.score>S.get(bk,0);if(isBest)S.set(bk,r.score);
   const rank=rankOf(r.score),stars=starsOf(rank);if(stars>S.get("nj_star_"+deckKey,0))S.set("nj_star_"+deckKey,stars);
   const t=gacha(rank),owned=S.get("nj_titles",[]),isNew=!owned.includes(t[1]);if(isNew){owned.push(t[1]);S.set("nj_titles",owned)}
@@ -1174,6 +1188,7 @@ function result(r){
 }
 function backToResult(){const v=S.get("nj_last",null);v?resultView(v):home()}
 function resultView(v){
+  track("result_view",{deck:v.deck});
   screen="result";
   const target=v.miss.length?v.miss.map(m=>({c:m.c,d:m.d})):v.seen.map(m=>({c:m.c,d:m.d}));
   app.innerHTML=`<div class="view">
@@ -1192,6 +1207,7 @@ function resultView(v){
 /* ---------- lists ---------- */
 function exItem(m,meta){if(m.to){meta=meta||"時間切れで答えられなかった問題";return `<details class="panel"><summary><span class="mk t">…</span><span class="k">${m.c[0]}${isEn(m.d)?" "+sayBtn(m.c[0],true):""}<small class="meta">${meta}</small></span><span class="v">${m.c[1]}</span></summary>${notes(m)}</details>`}return `<details class="panel"><summary><span class="mk ${m.ok===true||(meta&&!m.ng)?"o":m.ok===false||(meta&&m.ng)?"x":""}">${m.ok===true||(meta&&!m.ng)?"○":m.ok===false||(meta&&m.ng)?"✕":"・"}</span><span class="k">${m.c[0]}${isEn(m.d)?" "+sayBtn(m.c[0],true):""}${meta?`<small class="meta">${meta}</small>`:""}</span><span class="v">${m.c[1]}</span></summary>${notes(m)}</details>`}
 function library(list,title,from){
+  track("explain_open",{from:from||"tab",n:list.length});
   const body=`${hbar(title)}<div class="ex">${list.map(m=>exItem(m)).join("")}</div>`;
   if(from==="res"){app.innerHTML=`<div class="view">${body}<button class="btn sm" id="tores" style="--c:#5b6cff">結果画面にもどる</button></div>`;on("tores",backToResult);on("bk",backToResult)}else{shell("lib",body);on("bk",home)}
 }
@@ -1242,6 +1258,7 @@ function settings(){
 
 /* ---------- retry: same questions, no timer, until all correct ---------- */
 function retry(list){
+  track("retry_start",{n:list.length});
   screen="retry";let q=list.map(x=>({...x})),done=0,total=list.length,lock=false,cur=null;
   const draw=()=>{
     if(!q.length){
@@ -1268,6 +1285,7 @@ function retry(list){
 
 /* ---------- review: recall → reveal → self-check ---------- */
 function review(list,i,done){
+  if(i===0)track("review_start",{n:list.length});
   if(i>=list.length){
     app.innerHTML=`<div class="view"><div class="panel res"><span class="ribbon">CLEAR!</span><div class="emblem spin" style="background:radial-gradient(circle at 35% 30%,#c9ffe2,var(--green) 55%,var(--green-d));color:#fff">OK</div>
      <div class="sc">${done}問</div><div class="sub">覚えた問題も、次のバトルで少し間をあけて出題されます</div></div>

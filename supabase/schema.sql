@@ -123,3 +123,41 @@ grant execute on function public.admin_players() to service_role;
 -- 最初のTODAY問題(2026年10月5日分)
 insert into public.daily_packs (game_id, date, data) values ('dopa-anki', '2026-10-5', '{"date": "2026-10-5", "theme": "共テ頻出 英熟語10", "ask": "意味はどっち?", "lang": "en", "cards": [{"q": "look forward to", "a": "楽しみに待つ", "hook": ["分解", "forward(前)を look(見る) → 先のことを見て待つ → 楽しみに待つ"], "story": "to の後ろは名詞か -ing。look forward to see は定番のひっかけで、正しくは seeing。", "use": "I''m looking forward to the summer break.|夏休みを楽しみにしている。"}, {"q": "put off", "a": "延期する", "hook": ["イメージ", "予定を put(置いて) off(離す) → 先に回す → 延期する"], "story": "postpone と同じ意味。言い換え問題でペアにされやすい。", "use": "Don''t put off your homework until tomorrow.|宿題を明日に延ばさないで。"}, {"q": "give up", "a": "あきらめる", "hook": ["イメージ", "両手を up(上げて) 降参する姿 → あきらめる"], "story": "give up smoking(たばこをやめる)のように、習慣をやめる意味でもよく使う。", "use": "Never give up on your dream.|夢をあきらめないで。"}, {"q": "take part in", "a": "参加する", "hook": ["分解", "part(一部・役)を take(取る) → 役を担う → 参加する"], "story": "participate in と同じ意味。前に出た participate とセットで覚えると2倍おいしい。", "use": "Over 30 students took part in the contest.|30人以上の生徒がコンテストに参加した。"}, {"q": "come up with", "a": "思いつく", "hook": ["イメージ", "アイデアが頭の中に up(浮かび上がって) come(来る) → 思いつく"], "story": "think of とほぼ同じ意味。企画会議やグループワークでよく使う。", "use": "She came up with a great idea.|彼女はすごいアイデアを思いついた。"}, {"q": "get rid of", "a": "取り除く", "hook": ["語源", "rid は「自由にする」。いらない物から自由になる → 取り除く・処分する"], "story": "部屋の片付け、悪い習慣、ストレスなど、なくしたいもの全般に使える便利な熟語。", "use": "I want to get rid of this bad habit.|この悪いクセをなくしたい。"}, {"q": "make use of", "a": "利用する", "hook": ["分解", "use(使うこと)を make(する) → 利用する"], "story": "make good use of で「うまく活用する」。good や full をはさむ形がよく出る。", "use": "Make good use of your free time.|自由時間をうまく活用しよう。"}, {"q": "carry out", "a": "実行する", "hook": ["イメージ", "計画を外へ out まで carry(運び出す) → 最後までやり切る → 実行する"], "story": "実験・調査・計画など、きちんとした手順のあるものに使うことが多い。", "use": "We carried out a survey at school.|学校でアンケート調査を行った。"}, {"q": "turn down", "a": "断る", "hook": ["イメージ", "音量のつまみを down に回すように、申し出を下げる → 断る"], "story": "「音量を下げる」という元の意味でも使う。Turn down the music. は「音楽の音を小さくして」。", "use": "He turned down the invitation.|彼は招待を断った。"}, {"q": "look up to", "a": "尊敬する", "hook": ["イメージ", "相手を up(見上げる) → 尊敬する。反対は look down on(見下す)"], "story": "respect と同じ意味。反対語の look down on とペアで出題されやすい。", "use": "I look up to my older sister.|私は姉を尊敬している。"}]}'::jsonb)
 on conflict (game_id, date) do nothing;
+
+-- ⑥ プレイ状況の計測(イベント記録)
+create table if not exists public.events (
+  id bigint generated always as identity primary key,
+  player_id uuid not null references auth.users(id) on delete cascade,
+  game_id text not null references public.games(id),
+  name text not null check (char_length(name) between 1 and 40),
+  props jsonb not null default '{}'::jsonb check (pg_column_size(props) < 2000),
+  created_at timestamptz not null default now()
+);
+create index if not exists events_game_time on public.events (game_id, created_at);
+create index if not exists events_name_time on public.events (name, created_at);
+
+alter table public.events enable row level security;
+-- 自分の記録を書き込むことだけできる(一般の人は読めない)
+drop policy if exists "events insert own" on public.events;
+create policy "events insert own" on public.events for insert with check (auth.uid() = player_id);
+
+-- 運営用の集計(スプレッドシートから呼ぶ。一般の人は呼べない)
+create or replace function public.admin_event_daily()
+returns table (day date, game_id text, name text, events bigint, users bigint)
+language sql security definer set search_path = public as $$
+  select (created_at at time zone 'Asia/Tokyo')::date, game_id, name, count(*), count(distinct player_id)
+  from public.events group by 1, 2, 3 order by 1 desc, 2, 3
+$$;
+create or replace function public.admin_deck_daily()
+returns table (day date, game_id text, deck text, starts bigint, ends bigint, avg_score numeric, avg_correct numeric)
+language sql security definer set search_path = public as $$
+  select (created_at at time zone 'Asia/Tokyo')::date, game_id, coalesce(props->>'deck',''),
+         count(*) filter (where name = 'game_start'), count(*) filter (where name = 'game_end'),
+         round(avg((props->>'score')::numeric) filter (where name = 'game_end'), 1),
+         round(avg(case when name = 'game_end' and (props->>'ans')::numeric > 0 then (props->>'ok')::numeric / (props->>'ans')::numeric * 100 end), 1)
+  from public.events where name in ('game_start','game_end') group by 1, 2, 3 order by 1 desc, 2, 3
+$$;
+revoke execute on function public.admin_event_daily() from public, anon, authenticated;
+revoke execute on function public.admin_deck_daily() from public, anon, authenticated;
+grant execute on function public.admin_event_daily() to service_role;
+grant execute on function public.admin_deck_daily() to service_role;
